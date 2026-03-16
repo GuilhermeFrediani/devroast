@@ -34,6 +34,12 @@ src/
 
 ## Padrões globais
 
+### Specs
+
+- Antes de implementar feature nova, criar uma spec em `specs/`.
+- Seguir o formato definido em `specs/AGENTS.md`.
+- Manter a spec curta e atualizar se o escopo mudar.
+
 ### Exports
 
 - **Sempre named exports** — nunca `export default` para componentes. Páginas (`page.tsx`) e layouts (`layout.tsx`) são a exceção (exigência do Next.js).
@@ -61,7 +67,15 @@ src/
 
 ### Dados
 
-- Todos os dados são estáticos por enquanto (sem API).
+- A camada de API/back-end do projeto é `tRPC`.
+- Preferir `tRPC` para leitura/escrita de dados da aplicação em vez de dados mockados espalhados pela UI.
+- Para convenções da API, ver `src/trpc/AGENTS.md`.
+
+### Next.js App Router
+
+- Preferir Server Components por padrão.
+- Ao integrar dados com tRPC no front-end, usar prefetch/hydration via RSC sempre que fizer sentido.
+- Client Components devem existir quando houver necessidade real de hooks, interação ou animação.
 
 ### Biome
 

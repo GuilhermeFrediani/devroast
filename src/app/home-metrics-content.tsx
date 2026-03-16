@@ -5,9 +5,13 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useTRPC } from "@/trpc/client";
 
+const HOUR_IN_MS = 60 * 60 * 1000;
+
 export function HomeMetricsContent() {
   const trpc = useTRPC();
-  const { data } = useQuery(trpc.metrics.summary.queryOptions());
+  const { data } = useQuery(
+    trpc.metrics.summary.queryOptions(undefined, { staleTime: HOUR_IN_MS }),
+  );
 
   const [roastedCodes, setRoastedCodes] = useState(0);
   const [averageScore, setAverageScore] = useState(0);
