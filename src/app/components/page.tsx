@@ -5,7 +5,7 @@ import {
 } from "@/components/ui/analysis-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CodeBlock } from "@/components/ui/code-block";
+import { CodeBlock, CodeBlockHeader } from "@/components/ui/code-block";
 import { DiffBlock } from "@/components/ui/diff-block";
 import { DiffLine } from "@/components/ui/diff-line";
 import {
@@ -190,12 +190,10 @@ export default async function ComponentsPage() {
 
         <div className="flex flex-col gap-3">
           <SectionLabel>Exemplo</SectionLabel>
-          <CodeBlock
-            code={sampleCode}
-            lang="javascript"
-            fileName="calculate.js"
-            className="max-w-xl"
-          />
+          <div className="max-w-xl">
+            <CodeBlockHeader fileName="calculate.js" />
+            <CodeBlock code={sampleCode} lang="javascript" />
+          </div>
         </div>
       </section>
 

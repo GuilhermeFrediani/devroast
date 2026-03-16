@@ -1,22 +1,45 @@
+import { type ComponentProps, forwardRef } from "react";
 import type { BundledLanguage } from "shiki";
 import { codeToHtml } from "shiki";
 import { tv } from "tailwind-variants";
 
 const codeBlock = tv({
-  base: "flex flex-col overflow-hidden border border-border-default bg-bg-input font-mono",
+  base: "flex overflow-hidden border border-border-default bg-bg-input font-mono",
+});
+
+const codeBlockHeader = tv({
+  base: "flex h-10 items-center gap-3 border-b border-border-default px-4",
 });
 
 type CodeBlockProps = {
   code: string;
   lang?: BundledLanguage;
-  fileName?: string;
   className?: string;
 };
+
+type CodeBlockHeaderProps = ComponentProps<"div"> & {
+  fileName?: string;
+};
+
+const CodeBlockHeader = forwardRef<HTMLDivElement, CodeBlockHeaderProps>(
+  ({ className, fileName, ...props }, ref) => {
+    return (
+      <div ref={ref} className={codeBlockHeader({ className })} {...props}>
+        <span className="size-2.5 rounded-full bg-accent-red" />
+        <span className="size-2.5 rounded-full bg-accent-amber" />
+        <span className="size-2.5 rounded-full bg-accent-green" />
+        <span className="flex-1" />
+        {fileName && (
+          <span className="text-xs text-text-tertiary">{fileName}</span>
+        )}
+      </div>
+    );
+  },
+);
 
 async function CodeBlock({
   code,
   lang = "javascript",
-  fileName,
   className,
 }: CodeBlockProps) {
   const html = await codeToHtml(code, {
@@ -28,15 +51,6 @@ async function CodeBlock({
 
   return (
     <div className={codeBlock({ className })}>
-      <div className="flex h-10 items-center gap-3 border-b border-border-default px-4">
-        <span className="size-2.5 rounded-full bg-accent-red" />
-        <span className="size-2.5 rounded-full bg-accent-amber" />
-        <span className="size-2.5 rounded-full bg-accent-green" />
-        <span className="flex-1" />
-        {fileName && (
-          <span className="text-xs text-text-tertiary">{fileName}</span>
-        )}
-      </div>
       <div className="flex">
         <div className="flex flex-col gap-1.5 border-r border-border-default bg-gutter px-2.5 py-3">
           {lines.map((_, i) => (
@@ -59,5 +73,13 @@ async function CodeBlock({
 }
 
 CodeBlock.displayName = "CodeBlock";
+CodeBlockHeader.displayName = "CodeBlockHeader";
 
-export { CodeBlock, type CodeBlockProps, codeBlock };
+export {
+  CodeBlock,
+  CodeBlockHeader,
+  type CodeBlockHeaderProps,
+  type CodeBlockProps,
+  codeBlock,
+  codeBlockHeader,
+};
