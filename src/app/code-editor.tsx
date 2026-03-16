@@ -1,5 +1,6 @@
 "use client";
 
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 import { useMemo, useState } from "react";
 import { twMerge } from "tailwind-merge";
@@ -11,8 +12,11 @@ import {
   SUPPORTED_CODE_EDITOR_LANGUAGES,
 } from "@/components/ui/code-editor";
 import { Toggle } from "@/components/ui/toggle";
+import { useTRPC } from "@/trpc/client";
 
 function CodeEditor() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const [code, setCode] = useState("");
   const [roastMode, setRoastMode] = useState(true);
   const [selectedLanguage, setSelectedLanguage] =
@@ -21,6 +25,15 @@ function CodeEditor() {
 
   const MAX_CHARACTERS = 2000;
   const isOverLimit = code.length > MAX_CHARACTERS;
+  const canSubmit = !isOverLimit && !!code.trim();
+
+  const submitCodeMutation = useMutation(
+    trpc.metrics.submitCode.mutationOptions({
+      onSuccess: async () => {
+        await queryClient.invalidateQueries(trpc.metrics.summary.queryFilter());
+      },
+    }),
+  );
 
   const displayLanguage = useMemo(() => {
     if (selectedLanguage === AUTO_LANGUAGE_VALUE) {
@@ -29,6 +42,26 @@ function CodeEditor() {
 
     return selectedLanguage;
   }, [detectedLanguage, selectedLanguage]);
+
+  function getSubmissionLanguage() {
+    if (selectedLanguage !== AUTO_LANGUAGE_VALUE) {
+      return selectedLanguage;
+    }
+
+    return detectedLanguage;
+  }
+
+  async function handleRoastSubmit() {
+    if (!canSubmit || submitCodeMutation.isPending) {
+      return;
+    }
+
+    await submitCodeMutation.mutateAsync({
+      code,
+      language: getSubmissionLanguage(),
+      isRoastMode: roastMode,
+    });
+  }
 
   return (
     <>
@@ -56,7 +89,10 @@ function CodeEditor() {
                   setSelectedLanguage(event.target.value as CodeEditorLanguage);
                 }}
               >
-                <option value={AUTO_LANGUAGE_VALUE} className="bg-bg-input text-text-primary">
+                <option
+                  value={AUTO_LANGUAGE_VALUE}
+                  className="bg-bg-input text-text-primary"
+                >
                   automatic
                 </option>
                 {SUPPORTED_CODE_EDITOR_LANGUAGES.map((language) => (
@@ -73,12 +109,17 @@ function CodeEditor() {
             </div>
             <span className="text-xs text-text-tertiary">
               {displayLanguage}
-          </span>
+            </span>
+          </div>
+          <Button
+            variant="primary"
+            size="md"
+            disabled={!canSubmit || submitCodeMutation.isPending}
+            onClick={handleRoastSubmit}
+          >
+            {submitCodeMutation.isPending ? "$ roasting..." : "$ roast_my_code"}
+          </Button>
         </div>
-        <Button variant="primary" size="md" disabled={isOverLimit || !code.trim()}>
-          $ roast_my_code
-        </Button>
-      </div>
 
         <CodeEditorField
           value={code}
@@ -114,8 +155,13 @@ function CodeEditor() {
           </span>
         </div>
 
-        <Button variant="primary" size="md">
-          $ roast_my_code
+        <Button
+          variant="primary"
+          size="md"
+          disabled={!canSubmit || submitCodeMutation.isPending}
+          onClick={handleRoastSubmit}
+        >
+          {submitCodeMutation.isPending ? "$ roasting..." : "$ roast_my_code"}
         </Button>
       </div>
     </>

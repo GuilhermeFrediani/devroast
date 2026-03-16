@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { twMerge } from "tailwind-merge";
 import { SectionTitle } from "@/components/ui/section-title";
+import { HydrateClient, prefetch, trpc } from "@/trpc/server";
 import { CodeEditor } from "./code-editor";
+import { HomeMetricsContent } from "./home-metrics-content";
 
 const leaderboardData = [
   {
@@ -32,7 +34,9 @@ const leaderboardData = [
   },
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
+  await prefetch(trpc.metrics.summary.queryOptions());
+
   return (
     <main className="flex flex-col items-center gap-8 px-10 pt-20 pb-16">
       {/* Hero */}
@@ -54,11 +58,9 @@ export default function HomePage() {
       <CodeEditor />
 
       {/* Footer stats */}
-      <div className="flex items-center justify-center gap-6 text-xs text-text-tertiary">
-        <span>2,847 codes roasted</span>
-        <span>&middot;</span>
-        <span>avg score: 4.2/10</span>
-      </div>
+      <HydrateClient>
+        <HomeMetricsContent />
+      </HydrateClient>
 
       {/* Spacer */}
       <div className="h-8" />
