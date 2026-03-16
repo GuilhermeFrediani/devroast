@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
+import { Suspense } from "react";
 import { Navbar } from "@/components/ui/navbar";
 import { TRPCReactProvider } from "@/trpc/client";
 import "./globals.css";
@@ -33,7 +34,7 @@ export default function RootLayout({
               leaderboard
             </Link>
           </Navbar>
-          {children}
+          <Suspense fallback={null}>{children}</Suspense>
         </TRPCReactProvider>
       </body>
     </html>
