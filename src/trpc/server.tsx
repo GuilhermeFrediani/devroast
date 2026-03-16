@@ -22,6 +22,8 @@ export const trpc = createTRPCOptionsProxy({
   queryClient: getQueryClient,
 });
 
+export const caller = appRouter.createCaller(createTRPCContext);
+
 export async function prefetch(
   // biome-ignore lint/suspicious/noExplicitAny: required by tRPC helper typing
   queryOptions: ReturnType<TRPCQueryOptions<any>>,

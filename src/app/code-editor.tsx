@@ -2,6 +2,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { twMerge } from "tailwind-merge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import { useTRPC } from "@/trpc/client";
 function CodeEditor() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [code, setCode] = useState("");
   const [roastMode, setRoastMode] = useState(true);
   const [selectedLanguage, setSelectedLanguage] =
@@ -28,9 +30,10 @@ function CodeEditor() {
   const canSubmit = !isOverLimit && !!code.trim();
 
   const submitCodeMutation = useMutation(
-    trpc.metrics.submitCode.mutationOptions({
-      onSuccess: async () => {
+    trpc.roast.create.mutationOptions({
+      onSuccess: async (result) => {
         await queryClient.invalidateQueries(trpc.metrics.summary.queryFilter());
+        router.push(`/roast/${result.id}`);
       },
     }),
   );
