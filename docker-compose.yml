@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: devroast_db
+    environment:
+      POSTGRES_USER: devroast
+      POSTGRES_PASSWORD: devroast_pass
+      POSTGRES_DB: devroast
+    ports:
+      - "5432:5432"
+    volumes:
+      - devroast_pg_data:/var/lib/postgresql/data
+
+volumes:
+  devroast_pg_data:

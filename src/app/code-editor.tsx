@@ -1,55 +1,90 @@
 "use client";
 
-import { useState } from "react";
+import { ChevronDown } from "lucide-react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  AUTO_LANGUAGE_VALUE,
+  CodeEditor as CodeEditorField,
+  type CodeEditorLanguage,
+  SUPPORTED_CODE_EDITOR_LANGUAGES,
+} from "@/components/ui/code-editor";
 import { Toggle } from "@/components/ui/toggle";
-
-const VISIBLE_LINES = 16;
 
 function CodeEditor() {
   const [code, setCode] = useState("");
   const [roastMode, setRoastMode] = useState(true);
+  const [selectedLanguage, setSelectedLanguage] =
+    useState<CodeEditorLanguage>(AUTO_LANGUAGE_VALUE);
+  const [detectedLanguage, setDetectedLanguage] = useState("typescript");
 
-  const lineCount = Math.max(code.split("\n").length, VISIBLE_LINES);
+  const displayLanguage = useMemo(() => {
+    if (selectedLanguage === AUTO_LANGUAGE_VALUE) {
+      return `auto (${detectedLanguage})`;
+    }
+
+    return selectedLanguage;
+  }, [detectedLanguage, selectedLanguage]);
 
   return (
     <>
-      {/* Code editor */}
       <div className="flex w-full max-w-[780px] flex-col overflow-hidden border border-border-default bg-bg-input">
-        {/* Window header with traffic lights */}
-        <div className="flex h-10 items-center gap-2 border-b border-border-default px-4">
-          <span className="size-3 rounded-full bg-accent-red" />
-          <span className="size-3 rounded-full bg-accent-amber" />
-          <span className="size-3 rounded-full bg-accent-green" />
-        </div>
-
-        {/* Code area */}
-        <div className="flex h-[320px]">
-          {/* Line numbers */}
-          <div className="flex flex-col gap-2 border-r border-border-default bg-bg-surface px-3 py-4">
-            {Array.from({ length: lineCount }, (_, i) => (
-              <span
-                key={i}
-                className="text-right text-xs leading-snug text-text-tertiary"
-                style={{ minWidth: "1.5rem" }}
-              >
-                {i + 1}
-              </span>
-            ))}
+        <div className="flex h-10 items-center justify-between border-b border-border-default px-4">
+          <div className="flex items-center gap-2">
+            <span className="size-3 rounded-full bg-accent-red" />
+            <span className="size-3 rounded-full bg-accent-amber" />
+            <span className="size-3 rounded-full bg-accent-green" />
           </div>
 
-          {/* Textarea */}
-          <textarea
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            placeholder="// paste your code here..."
-            spellCheck={false}
-            className="flex-1 resize-none bg-transparent p-4 text-xs leading-snug text-text-primary outline-none placeholder:text-text-tertiary"
-          />
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] uppercase tracking-wide text-text-tertiary">
+              lang
+            </span>
+            <label className="sr-only" htmlFor="editor-language">
+              select language
+            </label>
+            <div className="relative flex items-center gap-1">
+              <select
+                id="editor-language"
+                className="appearance-none bg-transparent pr-5 text-xs text-text-secondary outline-none transition-colors hover:text-text-primary"
+                value={selectedLanguage}
+                onChange={(event) => {
+                  setSelectedLanguage(event.target.value as CodeEditorLanguage);
+                }}
+              >
+                <option value={AUTO_LANGUAGE_VALUE} className="bg-bg-input text-text-primary">
+                  automatic
+                </option>
+                {SUPPORTED_CODE_EDITOR_LANGUAGES.map((language) => (
+                  <option
+                    key={language}
+                    value={language}
+                    className="bg-bg-input text-text-primary"
+                  >
+                    {language}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-0 size-3 text-text-tertiary" />
+            </div>
+            <span className="text-xs text-text-tertiary">
+              {displayLanguage}
+            </span>
+          </div>
         </div>
+
+        <CodeEditorField
+          value={code}
+          onValueChange={setCode}
+          language={selectedLanguage}
+          onDetectedLanguageChange={(language) => {
+            setDetectedLanguage(language);
+          }}
+          placeholder="// paste your code here..."
+          aria-label="Code input"
+        />
       </div>
 
-      {/* Actions bar */}
       <div className="flex w-full max-w-[780px] items-center justify-between">
         <div className="flex items-center gap-4">
           <Toggle
