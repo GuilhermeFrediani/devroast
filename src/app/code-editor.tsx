@@ -2,6 +2,7 @@
 
 import { ChevronDown } from "lucide-react";
 import { useMemo, useState } from "react";
+import { twMerge } from "tailwind-merge";
 import { Button } from "@/components/ui/button";
 import {
   AUTO_LANGUAGE_VALUE,
@@ -17,6 +18,9 @@ function CodeEditor() {
   const [selectedLanguage, setSelectedLanguage] =
     useState<CodeEditorLanguage>(AUTO_LANGUAGE_VALUE);
   const [detectedLanguage, setDetectedLanguage] = useState("typescript");
+
+  const MAX_CHARACTERS = 2000;
+  const isOverLimit = code.length > MAX_CHARACTERS;
 
   const displayLanguage = useMemo(() => {
     if (selectedLanguage === AUTO_LANGUAGE_VALUE) {
@@ -69,9 +73,12 @@ function CodeEditor() {
             </div>
             <span className="text-xs text-text-tertiary">
               {displayLanguage}
-            </span>
-          </div>
+          </span>
         </div>
+        <Button variant="primary" size="md" disabled={isOverLimit || !code.trim()}>
+          $ roast_my_code
+        </Button>
+      </div>
 
         <CodeEditorField
           value={code}
@@ -83,6 +90,16 @@ function CodeEditor() {
           placeholder="// paste your code here..."
           aria-label="Code input"
         />
+        <div className="flex justify-end border-t border-border-default bg-bg-surface px-4 py-2">
+          <span
+            className={twMerge(
+              "font-mono text-[10px]",
+              isOverLimit ? "text-accent-red" : "text-text-tertiary",
+            )}
+          >
+            {code.length} / {MAX_CHARACTERS}
+          </span>
+        </div>
       </div>
 
       <div className="flex w-full max-w-[780px] items-center justify-between">

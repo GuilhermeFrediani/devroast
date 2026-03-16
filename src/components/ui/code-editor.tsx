@@ -17,14 +17,14 @@ import { tv } from "tailwind-variants";
 
 const codeEditor = tv({
   slots: {
-    root: "flex h-[320px] w-full overflow-hidden bg-bg-input font-mono",
+    root: "flex max-h-[600px] w-full overflow-hidden bg-bg-input font-mono",
     lineNumbers:
-      "flex flex-col gap-2 overflow-hidden border-r border-border-default bg-bg-surface px-3 py-4 text-right text-xs leading-snug text-text-tertiary select-none",
+      "flex flex-col gap-2 overflow-y-hidden border-r border-border-default bg-bg-surface px-3 py-4 text-right text-xs leading-snug text-text-tertiary select-none",
     editorLayer: "grid min-w-0 flex-1 overflow-hidden",
     textarea:
       "[grid-area:1/1] h-full w-full resize-none overflow-auto bg-transparent p-4 text-xs leading-snug text-transparent caret-text-primary outline-none placeholder:text-text-tertiary",
     highlighted:
-      "[grid-area:1/1] overflow-hidden p-4 text-xs leading-snug pointer-events-none [&_.line]:leading-snug [&_pre]:m-0 [&_pre]:bg-transparent [&_pre]:p-0",
+      "[grid-area:1/1] overflow-auto p-4 text-xs leading-snug pointer-events-none [&_.line]:leading-snug [&_pre]:m-0 [&_pre]:bg-transparent [&_pre]:p-0",
   },
 });
 
