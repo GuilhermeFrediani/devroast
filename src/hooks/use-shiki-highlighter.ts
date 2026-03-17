@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createHighlighterCore, type HighlighterCore } from "shiki";
+import { createHighlighterCore, type HighlighterCore } from "shiki/core";
+import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
 import { LANGUAGES } from "@/lib/languages";
 
 let highlighterInstance: HighlighterCore | null = null;
@@ -9,7 +10,7 @@ let highlighterPromise: Promise<HighlighterCore> | null = null;
 
 const EAGER_LANGUAGES = Object.entries(LANGUAGES)
   .filter(([, lang]) => lang.eager)
-  .map(([key, lang]) => ({ key, shikiId: lang.shikiId }));
+  .map(([, lang]) => lang.shikiId);
 
 async function getHighlighter(): Promise<HighlighterCore> {
   if (highlighterInstance) return highlighterInstance;
@@ -22,7 +23,8 @@ async function getHighlighter(): Promise<HighlighterCore> {
 async function initHighlighter(): Promise<HighlighterCore> {
   const highlighter = await createHighlighterCore({
     themes: ["vesper"],
-    langs: EAGER_LANGUAGES.map((l) => l.shikiId),
+    langs: EAGER_LANGUAGES,
+    engine: createJavaScriptRegexEngine(),
   });
 
   highlighterInstance = highlighter;
