@@ -1,146 +1,137 @@
 import { TRPCError } from "@trpc/server";
-import { desc, eq, sql } from "drizzle-orm";
+import { generateText, Output } from "ai";
+import { count, eq } from "drizzle-orm";
 import { z } from "zod";
-import { analysisIssues, codeDiffs, submissions } from "@/db/schema";
-import { revalidateRoastCaches } from "@/lib/revalidate";
-import { parseDiffContent, serializeDiffLines } from "@/lib/roast";
-import { generateRoastAnalysis } from "@/lib/roast-generator";
+import { analysisItems, roasts } from "@/db/schema";
+import { getSystemPrompt, model, roastOutputSchema } from "@/lib/ai";
 import { baseProcedure, createTRPCRouter } from "@/trpc/init";
 
-const roastIdSchema = z.object({
-  id: z.string().uuid(),
-});
-
-const createRoastSchema = z.object({
-  code: z.string().trim().min(1).max(2000),
-  language: z.string().trim().min(1).max(50),
-  isRoastMode: z.boolean(),
-});
-
-const issueOrder = {
-  critical: 0,
-  warning: 1,
-  good: 2,
-} as const;
-
 export const roastRouter = createTRPCRouter({
-  byId: baseProcedure.input(roastIdSchema).query(async ({ ctx, input }) => {
-    try {
-      const [submission, issues, [suggestedFix]] = await Promise.all([
-        ctx.db
-          .select({
-            id: submissions.id,
-            code: submissions.code,
-            language: submissions.language,
-            score: sql<number>`${submissions.score}::float8`,
-            isRoastMode: submissions.isRoastMode,
-            verdict: submissions.verdict,
-            roastQuote: submissions.roastQuote,
-            createdAt: submissions.createdAt,
-          })
-          .from(submissions)
-          .where(eq(submissions.id, input.id))
-          .then((rows) => rows[0]),
-        ctx.db
-          .select({
-            id: analysisIssues.id,
-            type: analysisIssues.issueType,
-            title: analysisIssues.title,
-            description: analysisIssues.description,
-          })
-          .from(analysisIssues)
-          .where(eq(analysisIssues.submissionId, input.id)),
-        ctx.db
-          .select({
-            diffContent: codeDiffs.diffContent,
-          })
-          .from(codeDiffs)
-          .where(eq(codeDiffs.submissionId, input.id))
-          .orderBy(desc(codeDiffs.createdAt))
-          .limit(1),
-      ]);
+  getStats: baseProcedure.query(async ({ ctx }) => {
+    const [stats] = await ctx.db
+      .select({
+        totalRoasts: count(),
+      })
+      .from(roasts);
 
-      if (!submission) {
-        return null;
-      }
+    const allRoasts = await ctx.db.select({ score: roasts.score }).from(roasts);
+    const avgScore =
+      allRoasts.length > 0
+        ? allRoasts.reduce((sum, r) => sum + (r.score ?? 0), 0) /
+          allRoasts.length
+        : 0;
 
-      return {
-        ...submission,
-        verdict: submission.verdict as
-          | "catastrophic"
-          | "needs_serious_help"
-          | "questionable_choices"
-          | "almost_ok"
-          | "surprisingly_decent",
-        roastQuote:
-          submission.roastQuote ??
-          "the model roasted this code so hard it forgot to save the quote.",
-        lineCount: submission.code.split("\n").length,
-        issues: issues.sort((left, right) => {
-          const orderDelta = issueOrder[left.type] - issueOrder[right.type];
-
-          if (orderDelta !== 0) {
-            return orderDelta;
-          }
-
-          return left.title.localeCompare(right.title);
-        }),
-        suggestedFix: parseDiffContent(suggestedFix?.diffContent ?? ""),
-      };
-    } catch (error) {
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Failed to load roast.",
-        cause: error,
-      });
-    }
+    return {
+      totalRoasts: stats.totalRoasts,
+      avgScore,
+    };
   }),
 
+  getLeaderboard: baseProcedure
+    .input(z.object({ limit: z.number().min(1).max(20).default(3) }))
+    .query(async ({ ctx, input }) => {
+      const entries = await ctx.db
+        .select({
+          id: roasts.id,
+          code: roasts.code,
+          score: roasts.score,
+          language: roasts.language,
+        })
+        .from(roasts)
+        .limit(input.limit);
+
+      const [{ total }] = await ctx.db.select({ total: count() }).from(roasts);
+
+      // Sort by score ascending (lower is better)
+      const sorted = entries.sort((a, b) => (a.score ?? 0) - (b.score ?? 0));
+
+      return {
+        entries: sorted.map((entry, index) => ({
+          ...entry,
+          rank: index + 1,
+          lineCount: entry.code.split("\n").length,
+        })),
+        totalCount: total,
+      };
+    }),
+
   create: baseProcedure
-    .input(createRoastSchema)
+    .input(
+      z.object({
+        code: z.string().min(1).max(2000),
+        language: z.string(),
+        roastMode: z.boolean(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
-      try {
-        const roast = await generateRoastAnalysis(input);
+      const { output } = await generateText({
+        model,
+        output: Output.object({ schema: roastOutputSchema }),
+        system: getSystemPrompt(input.roastMode),
+        prompt: `Language: ${input.language}\n\nCode:\n${input.code}`,
+      });
 
-        const created = await ctx.db.transaction(async (tx) => {
-          const [submission] = await tx
-            .insert(submissions)
-            .values({
-              code: input.code,
-              language: input.language,
-              score: roast.score.toFixed(1),
-              isRoastMode: input.isRoastMode,
-              verdict: roast.verdict,
-              roastQuote: roast.roastQuote,
-            })
-            .returning({ id: submissions.id });
-
-          await tx.insert(analysisIssues).values(
-            roast.issues.map((issue) => ({
-              submissionId: submission.id,
-              issueType: issue.type,
-              title: issue.title,
-              description: issue.description,
-            })),
-          );
-
-          await tx.insert(codeDiffs).values({
-            submissionId: submission.id,
-            diffContent: serializeDiffLines(roast.suggestedFix.lines),
-          });
-
-          return submission;
-        });
-
-        revalidateRoastCaches();
-
-        return { id: created.id };
-      } catch (error) {
+      if (!output) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to generate roast.",
-          cause: error,
+          message: "AI failed to generate a valid response",
         });
       }
+
+      const lineCount = input.code.split("\n").length;
+
+      const [roast] = await ctx.db
+        .insert(roasts)
+        .values({
+          code: input.code,
+          language: input.language,
+          lineCount,
+          roastMode: input.roastMode,
+          score: output.score,
+          verdict: output.verdict,
+          roastQuote: output.roastQuote,
+          suggestedFix: output.suggestedFix,
+        })
+        .returning({ id: roasts.id });
+
+      if (output.analysisItems.length > 0) {
+        await ctx.db.insert(analysisItems).values(
+          output.analysisItems.map((item, index) => ({
+            roastId: roast.id,
+            severity: item.severity,
+            title: item.title,
+            description: item.description,
+            order: index,
+          })),
+        );
+      }
+
+      return { id: roast.id };
+    }),
+
+  getById: baseProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const [roast] = await ctx.db
+        .select()
+        .from(roasts)
+        .where(eq(roasts.id, input.id));
+
+      if (!roast) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Roast not found",
+        });
+      }
+
+      const items = await ctx.db
+        .select()
+        .from(analysisItems)
+        .where(eq(analysisItems.roastId, roast.id));
+
+      return {
+        ...roast,
+        analysisItems: items.sort((a, b) => a.order - b.order),
+      };
     }),
 });
