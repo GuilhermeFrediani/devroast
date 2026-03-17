@@ -1,7 +1,8 @@
-import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 
-export const model = openai("gpt-4o-mini");
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_API_URL =
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
 export const roastOutputSchema = z.object({
   score: z.number().min(0).max(10),
@@ -50,4 +51,66 @@ ROAST MODE ENABLED: Be brutally sarcastic and funny. The roastQuote should be a 
   return `${base}
 
 Be professional, direct, and constructive. The roastQuote should be an honest one-liner summary. Analysis descriptions should be clear and actionable.`;
+}
+
+export async function generateRoast(
+  code: string,
+  language: string,
+  roastMode: boolean,
+): Promise<RoastOutput> {
+  if (!GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY environment variable is not set");
+  }
+
+  const systemPrompt = getSystemPrompt(roastMode);
+
+  const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          parts: [
+            {
+              text: `${systemPrompt}\n\nLanguage: ${language}\n\nCode to analyze:\n\`\`\`${language}\n${code}\n\`\`\`\n\nRespond with a JSON object matching this exact structure:\n{\n  "score": number,\n  "verdict": "needs_serious_help" | "rough_around_edges" | "decent_code" | "solid_work" | "exceptional",\n  "roastQuote": "string",\n  "analysisItems": [\n    {\n      "severity": "critical" | "warning" | "good",\n      "title": "string",\n      "description": "string"\n    }\n  ],\n  "suggestedFix": "string (the complete improved code)"\n}\n\nRespond ONLY with the JSON object, no other text.`,
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 4096,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+
+  const textContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+  if (!textContent) {
+    throw new Error("No response text from Gemini");
+  }
+
+  // Extract JSON from response (handle markdown code blocks)
+  let jsonStr = textContent.trim();
+  if (jsonStr.startsWith("```json")) {
+    jsonStr = jsonStr.slice(7);
+  } else if (jsonStr.startsWith("```")) {
+    jsonStr = jsonStr.slice(3);
+  }
+  if (jsonStr.endsWith("```")) {
+    jsonStr = jsonStr.slice(0, -3);
+  }
+  jsonStr = jsonStr.trim();
+
+  const parsed = JSON.parse(jsonStr);
+  return roastOutputSchema.parse(parsed);
 }

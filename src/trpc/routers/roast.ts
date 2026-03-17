@@ -1,9 +1,8 @@
 import { TRPCError } from "@trpc/server";
-import { generateText, Output } from "ai";
 import { count, eq } from "drizzle-orm";
 import { z } from "zod";
 import { analysisItems, roasts } from "@/db/schema";
-import { getSystemPrompt, model, roastOutputSchema } from "@/lib/ai";
+import { generateRoast } from "@/lib/ai";
 import { baseProcedure, createTRPCRouter } from "@/trpc/init";
 
 export const roastRouter = createTRPCRouter({
@@ -64,19 +63,11 @@ export const roastRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const { output } = await generateText({
-        model,
-        output: Output.object({ schema: roastOutputSchema }),
-        system: getSystemPrompt(input.roastMode),
-        prompt: `Language: ${input.language}\n\nCode:\n${input.code}`,
-      });
-
-      if (!output) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "AI failed to generate a valid response",
-        });
-      }
+      const output = await generateRoast(
+        input.code,
+        input.language,
+        input.roastMode,
+      );
 
       const lineCount = input.code.split("\n").length;
 
