@@ -13,7 +13,11 @@ import { DiffLine } from "@/components/ui/diff-line";
 import { getCodeLanguage } from "@/components/ui/leaderboard-snippet";
 import { ScoreRing } from "@/components/ui/score-ring";
 import { SectionTitle } from "@/components/ui/section-title";
-import { computeDiffLines, formatVerdictLabel, getVerdictBadgeVariant } from "@/lib/roast";
+import {
+  computeDiffLines,
+  formatVerdictLabel,
+  getVerdictBadgeVariant,
+} from "@/lib/roast";
 import { caller } from "@/trpc/server";
 
 type RoastResultPageProps = {

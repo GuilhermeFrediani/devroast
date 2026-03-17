@@ -32,9 +32,7 @@ function CodeEditor() {
   const submitCodeMutation = useMutation(
     trpc.roast.create.mutationOptions({
       onSuccess: async (result) => {
-        await queryClient.invalidateQueries(
-          trpc.roast.getStats.queryFilter(),
-        );
+        await queryClient.invalidateQueries(trpc.roast.getStats.queryFilter());
         router.push(`/roast/${result.id}`);
       },
     }),

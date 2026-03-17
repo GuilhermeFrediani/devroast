@@ -8,7 +8,9 @@ const verdictValues = [
 
 type RoastVerdict = (typeof verdictValues)[number];
 
-function getVerdictBadgeVariant(verdict: RoastVerdict): "critical" | "warning" | "good" {
+function getVerdictBadgeVariant(
+  verdict: RoastVerdict,
+): "critical" | "warning" | "good" {
   switch (verdict) {
     case "needs_serious_help":
       return "critical";

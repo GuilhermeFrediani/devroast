@@ -23,9 +23,7 @@ export async function LeaderboardContent() {
         </p>
 
         <div className="flex items-center gap-2 text-xs text-text-tertiary">
-          <span>
-            {stats.totalRoasts.toLocaleString("en-US")} submissions
-          </span>
+          <span>{stats.totalRoasts.toLocaleString("en-US")} submissions</span>
           <span>&middot;</span>
           <span>avg score: {stats.avgScore.toFixed(1)}/10</span>
         </div>
