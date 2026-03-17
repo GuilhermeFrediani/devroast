@@ -47,12 +47,8 @@
           "name": "analysis_issues_submission_id_submissions_id_fk",
           "tableFrom": "analysis_issues",
           "tableTo": "submissions",
-          "columnsFrom": [
-            "submission_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["submission_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -100,12 +96,8 @@
           "name": "code_diffs_submission_id_submissions_id_fk",
           "tableFrom": "code_diffs",
           "tableTo": "submissions",
-          "columnsFrom": [
-            "submission_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["submission_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -185,11 +177,7 @@
     "public.issue_type": {
       "name": "issue_type",
       "schema": "public",
-      "values": [
-        "critical",
-        "warning",
-        "good"
-      ]
+      "values": ["critical", "warning", "good"]
     }
   },
   "schemas": {},
