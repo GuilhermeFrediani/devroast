@@ -1,7 +1,7 @@
 import { faker } from "@faker-js/faker";
 import "dotenv/config";
 import { db } from "./index";
-import { analysisIssues, codeDiffs, submissions } from "./schema";
+import { analysisItems, roasts } from "./schema";
 
 const TOTAL_ROASTS = 100;
 
@@ -19,11 +19,11 @@ const LANGUAGES = [
 ] as const;
 
 const VERDICTS = [
-  "catastrophic",
   "needs_serious_help",
-  "questionable_choices",
-  "almost_ok",
-  "surprisingly_decent",
+  "rough_around_edges",
+  "decent_code",
+  "solid_work",
+  "exceptional",
 ] as const;
 
 const ROAST_QUOTES = [
@@ -90,62 +90,58 @@ function makeCode(language: (typeof LANGUAGES)[number], index: number) {
   }
 }
 
-function buildDiff(code: string) {
-  const lines = code.split("\n").slice(0, 4);
-  const removed = lines.map((line) => `- ${line}`).join("\n");
-  const added = lines
-    .map((line) => `+ ${line.replace("var ", "const ").replace("==", "===")}`)
-    .join("\n");
-  return `${removed}\n${added}`;
+function buildSuggestedFix(code: string): string {
+  return code
+    .replace("var ", "const ")
+    .replace("==", "===")
+    .replace("let ", "const ");
 }
 
 async function main() {
   console.log("Seeding database with roast data...");
 
-  await db.delete(codeDiffs);
-  await db.delete(analysisIssues);
-  await db.delete(submissions);
+  await db.delete(analysisItems);
+  await db.delete(roasts);
 
   for (let index = 0; index < TOTAL_ROASTS; index += 1) {
     const language = faker.helpers.arrayElement(LANGUAGES);
     const score = faker.number.float({ min: 0, max: 10, fractionDigits: 1 });
     const code = makeCode(language, index + 1);
+    const lineCount = code.split("\n").length;
 
-    const [submission] = await db
-      .insert(submissions)
+    const [roast] = await db
+      .insert(roasts)
       .values({
         code,
         language,
-        score: score.toFixed(1),
-        isRoastMode: faker.datatype.boolean({ probability: 0.7 }),
+        lineCount,
+        score,
+        roastMode: faker.datatype.boolean({ probability: 0.7 }),
         verdict: faker.helpers.arrayElement(VERDICTS),
         roastQuote: faker.helpers.arrayElement(ROAST_QUOTES),
+        suggestedFix: buildSuggestedFix(code),
       })
-      .returning({ id: submissions.id });
+      .returning({ id: roasts.id });
 
     const issueCount = faker.number.int({ min: 2, max: 4 });
 
-    await db.insert(analysisIssues).values(
-      Array.from({ length: issueCount }, () => {
-        const issueType = faker.helpers.weightedArrayElement([
+    await db.insert(analysisItems).values(
+      Array.from({ length: issueCount }, (_, i) => {
+        const severity = faker.helpers.weightedArrayElement([
           { value: "critical", weight: 4 },
           { value: "warning", weight: 5 },
           { value: "good", weight: 2 },
         ] as const);
 
         return {
-          submissionId: submission.id,
-          issueType,
-          title: faker.helpers.arrayElement(ISSUE_TITLES[issueType]),
+          roastId: roast.id,
+          severity,
+          title: faker.helpers.arrayElement(ISSUE_TITLES[severity]),
           description: faker.lorem.sentences({ min: 2, max: 4 }),
+          order: i,
         };
       }),
     );
-
-    await db.insert(codeDiffs).values({
-      submissionId: submission.id,
-      diffContent: buildDiff(code),
-    });
   }
 
   console.log(`Seed completed successfully with ${TOTAL_ROASTS} roasts.`);

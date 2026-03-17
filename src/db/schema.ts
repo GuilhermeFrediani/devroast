@@ -1,31 +1,50 @@
-import { pgTable, text, timestamp, uuid, numeric, boolean, varchar, pgEnum } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  index,
+  integer,
+  pgEnum,
+  pgTable,
+  real,
+  text,
+  timestamp,
+  uuid,
+  varchar,
+} from "drizzle-orm/pg-core";
 
-// Enums
-export const issueTypeEnum = pgEnum('issue_type', ['critical', 'warning', 'good']);
+export const verdictEnum = pgEnum("verdict", [
+  "needs_serious_help",
+  "rough_around_edges",
+  "decent_code",
+  "solid_work",
+  "exceptional",
+]);
 
-// Tables
-export const submissions = pgTable('submissions', {
+export const severityEnum = pgEnum("severity", ["critical", "warning", "good"]);
+
+export const roasts = pgTable(
+  "roasts",
+  {
+    id: uuid().defaultRandom().primaryKey(),
+    code: text().notNull(),
+    language: varchar({ length: 50 }).notNull(),
+    lineCount: integer().notNull(),
+    roastMode: boolean().default(false).notNull(),
+    score: real().notNull(),
+    verdict: verdictEnum().notNull(),
+    roastQuote: text(),
+    suggestedFix: text(),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index("roasts_score_idx").on(table.score)],
+);
+
+export const analysisItems = pgTable("analysis_items", {
   id: uuid().defaultRandom().primaryKey(),
-  code: text().notNull(),
-  language: varchar({ length: 50 }).notNull(),
-  score: numeric({ precision: 3, scale: 1 }).notNull(),
-  isRoastMode: boolean().default(false).notNull(),
-  verdict: varchar({ length: 50 }).notNull(),
-  roastQuote: text(),
-  createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-});
-
-export const analysisIssues = pgTable('analysis_issues', {
-  id: uuid().defaultRandom().primaryKey(),
-  submissionId: uuid().notNull().references(() => submissions.id, { onDelete: 'cascade' }),
-  issueType: issueTypeEnum().notNull(),
-  title: varchar({ length: 255 }).notNull(),
+  roastId: uuid()
+    .references(() => roasts.id, { onDelete: "cascade" })
+    .notNull(),
+  severity: severityEnum().notNull(),
+  title: varchar({ length: 200 }).notNull(),
   description: text().notNull(),
-});
-
-export const codeDiffs = pgTable('code_diffs', {
-  id: uuid().defaultRandom().primaryKey(),
-  submissionId: uuid().notNull().references(() => submissions.id, { onDelete: 'cascade' }),
-  diffContent: text().notNull(),
-  createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+  order: integer().notNull(),
 });
