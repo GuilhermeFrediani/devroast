@@ -1,6 +1,5 @@
 "use client";
 
-import flourite from "flourite";
 import {
   type ComponentProps,
   forwardRef,
@@ -8,12 +7,10 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  type BundledLanguage,
-  createHighlighter,
-  type Highlighter,
-} from "shiki";
 import { tv } from "tailwind-variants";
+import { useLanguageDetection } from "@/hooks/use-language-detection";
+import { useShikiHighlighter } from "@/hooks/use-shiki-highlighter";
+import { LANGUAGES } from "@/lib/languages";
 
 const codeEditor = tv({
   slots: {
@@ -28,70 +25,10 @@ const codeEditor = tv({
   },
 });
 
-const DETECT_DEBOUNCE_MS = 200;
 const RENDER_DEBOUNCE_MS = 120;
 const AUTO_LANGUAGE_VALUE = "auto";
 
-const SUPPORTED_CODE_EDITOR_LANGUAGES: BundledLanguage[] = [
-  "javascript",
-  "typescript",
-  "jsx",
-  "tsx",
-  "html",
-  "css",
-  "python",
-  "java",
-  "go",
-  "rust",
-  "php",
-  "ruby",
-  "swift",
-  "kotlin",
-  "sql",
-  "json",
-  "yaml",
-  "markdown",
-  "bash",
-  "docker",
-];
-
-const FLOURITE_LANGUAGE_TO_SHIKI: Record<string, BundledLanguage> = {
-  javascript: "javascript",
-  typescript: "typescript",
-  html: "html",
-  css: "css",
-  python: "python",
-  java: "java",
-  go: "go",
-  rust: "rust",
-  php: "php",
-  ruby: "ruby",
-  swift: "swift",
-  kotlin: "kotlin",
-  sql: "sql",
-  json: "json",
-  yaml: "yaml",
-  markdown: "markdown",
-  shell: "bash",
-  bash: "bash",
-  dockerfile: "docker",
-};
-
-function normalizeDetectedLanguage(value: string): BundledLanguage {
-  const normalized = value.trim().toLowerCase();
-
-  if (normalized in FLOURITE_LANGUAGE_TO_SHIKI) {
-    return FLOURITE_LANGUAGE_TO_SHIKI[normalized];
-  }
-
-  if (SUPPORTED_CODE_EDITOR_LANGUAGES.includes(normalized as BundledLanguage)) {
-    return normalized as BundledLanguage;
-  }
-
-  return "typescript";
-}
-
-type CodeEditorLanguage = BundledLanguage | typeof AUTO_LANGUAGE_VALUE;
+type CodeEditorLanguage = string | typeof AUTO_LANGUAGE_VALUE;
 
 type CodeEditorProps = Omit<
   ComponentProps<"textarea">,
@@ -100,7 +37,7 @@ type CodeEditorProps = Omit<
   value: string;
   onValueChange: (value: string) => void;
   language?: CodeEditorLanguage;
-  onDetectedLanguageChange?: (language: BundledLanguage) => void;
+  onDetectedLanguageChange?: (language: string) => void;
   className?: string;
 };
 
@@ -116,84 +53,56 @@ const CodeEditor = forwardRef<HTMLTextAreaElement, CodeEditorProps>(
     },
     ref,
   ) => {
-    const [detectedLanguage, setDetectedLanguage] =
-      useState<BundledLanguage>("typescript");
     const [highlightedHtml, setHighlightedHtml] = useState("");
-    const highlighterRef = useRef<Highlighter | null>(null);
     const lineNumbersRef = useRef<HTMLDivElement | null>(null);
     const highlightedRef = useRef<HTMLDivElement | null>(null);
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const { highlight, isLoading, ensureLanguageLoaded } =
+      useShikiHighlighter();
+    const { detectedLanguage } = useLanguageDetection(
+      language === AUTO_LANGUAGE_VALUE ? value : "",
+    );
 
     const { root, lineNumbers, editorLayer, textarea, highlighted } =
       codeEditor();
+
     const activeLanguage =
-      language === AUTO_LANGUAGE_VALUE ? detectedLanguage : language;
+      language === AUTO_LANGUAGE_VALUE
+        ? (detectedLanguage ?? "typescript")
+        : language;
+
     const lineCount = Math.max(value.split("\n").length, 16);
 
     useEffect(() => {
-      let isMounted = true;
-
-      async function setupHighlighter() {
-        const highlighter = await createHighlighter({
-          themes: ["vesper"],
-          langs: SUPPORTED_CODE_EDITOR_LANGUAGES,
-        });
-
-        if (!isMounted) {
-          return;
-        }
-
-        highlighterRef.current = highlighter;
+      if (language === AUTO_LANGUAGE_VALUE && detectedLanguage) {
+        onDetectedLanguageChange?.(detectedLanguage);
       }
-
-      setupHighlighter().catch((error) => {
-        console.error("Failed to initialize syntax highlighter", error);
-      });
-
-      return () => {
-        isMounted = false;
-        highlighterRef.current?.dispose();
-        highlighterRef.current = null;
-      };
-    }, []);
+    }, [detectedLanguage, language, onDetectedLanguageChange]);
 
     useEffect(() => {
-      if (language !== AUTO_LANGUAGE_VALUE) {
-        return;
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
       }
 
-      const timeout = window.setTimeout(() => {
-        const { language: inferredLanguage } = flourite(value, {
-          heuristic: true,
-          shiki: true,
-        });
-        const normalizedLanguage = normalizeDetectedLanguage(inferredLanguage);
-        setDetectedLanguage(normalizedLanguage);
-        onDetectedLanguageChange?.(normalizedLanguage);
-      }, DETECT_DEBOUNCE_MS);
-
-      return () => {
-        window.clearTimeout(timeout);
-      };
-    }, [language, onDetectedLanguageChange, value]);
-
-    useEffect(() => {
-      const timeout = window.setTimeout(() => {
-        if (!highlighterRef.current || !value.trim()) {
+      timerRef.current = setTimeout(() => {
+        if (isLoading || !value.trim()) {
           setHighlightedHtml("");
           return;
         }
 
-        const html = highlighterRef.current.codeToHtml(value, {
-          lang: activeLanguage,
-          theme: "vesper",
+        ensureLanguageLoaded(activeLanguage).then(() => {
+          const html = highlight(value, activeLanguage);
+          setHighlightedHtml(html);
         });
-        setHighlightedHtml(html);
       }, RENDER_DEBOUNCE_MS);
 
       return () => {
-        window.clearTimeout(timeout);
+        if (timerRef.current) {
+          clearTimeout(timerRef.current);
+        }
       };
-    }, [activeLanguage, value]);
+    }, [activeLanguage, ensureLanguageLoaded, highlight, isLoading, value]);
 
     function handleKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
       if (event.key === "Tab") {
@@ -228,6 +137,13 @@ const CodeEditor = forwardRef<HTMLTextAreaElement, CodeEditorProps>(
       props.onScroll?.(event);
     }
 
+    function escapeHtml(text: string): string {
+      return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
     return (
       <div className={root({ className })}>
         <div ref={lineNumbersRef} className={lineNumbers()}>
@@ -260,10 +176,9 @@ const CodeEditor = forwardRef<HTMLTextAreaElement, CodeEditorProps>(
             dangerouslySetInnerHTML={{
               __html:
                 highlightedHtml ||
-                `<pre class="shiki vesper" style="background-color:transparent"><code><span class="line">${value
-                  .replace(/&/g, "&amp;")
-                  .replace(/</g, "&lt;")
-                  .replace(/>/g, "&gt;")
+                `<pre class="shiki vesper" style="background-color:transparent"><code><span class="line">${escapeHtml(
+                  value,
+                )
                   .split("\n")
                   .join('</span>\n<span class="line">')}</span></code></pre>`,
             }}
@@ -282,5 +197,4 @@ export {
   type CodeEditorLanguage,
   type CodeEditorProps,
   codeEditor,
-  SUPPORTED_CODE_EDITOR_LANGUAGES,
 };
