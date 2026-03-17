@@ -10,9 +10,9 @@ import {
   AUTO_LANGUAGE_VALUE,
   CodeEditor as CodeEditorField,
   type CodeEditorLanguage,
-  SUPPORTED_CODE_EDITOR_LANGUAGES,
 } from "@/components/ui/code-editor";
 import { Toggle } from "@/components/ui/toggle";
+import { LANGUAGE_OPTIONS } from "@/lib/languages";
 import { useTRPC } from "@/trpc/client";
 
 function CodeEditor() {
@@ -32,7 +32,9 @@ function CodeEditor() {
   const submitCodeMutation = useMutation(
     trpc.roast.create.mutationOptions({
       onSuccess: async (result) => {
-        await queryClient.invalidateQueries(trpc.metrics.summary.queryFilter());
+        await queryClient.invalidateQueries(
+          trpc.roast.getStats.queryFilter(),
+        );
         router.push(`/roast/${result.id}`);
       },
     }),
@@ -62,7 +64,7 @@ function CodeEditor() {
     await submitCodeMutation.mutateAsync({
       code,
       language: getSubmissionLanguage(),
-      isRoastMode: roastMode,
+      roastMode,
     });
   }
 
@@ -98,13 +100,13 @@ function CodeEditor() {
                 >
                   automatic
                 </option>
-                {SUPPORTED_CODE_EDITOR_LANGUAGES.map((language) => (
+                {LANGUAGE_OPTIONS.map((lang) => (
                   <option
-                    key={language}
-                    value={language}
+                    key={lang.value}
+                    value={lang.value}
                     className="bg-bg-input text-text-primary"
                   >
-                    {language}
+                    {lang.label}
                   </option>
                 ))}
               </select>

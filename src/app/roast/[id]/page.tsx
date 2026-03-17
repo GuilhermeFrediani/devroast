@@ -13,7 +13,7 @@ import { DiffLine } from "@/components/ui/diff-line";
 import { getCodeLanguage } from "@/components/ui/leaderboard-snippet";
 import { ScoreRing } from "@/components/ui/score-ring";
 import { SectionTitle } from "@/components/ui/section-title";
-import { formatVerdictLabel, getVerdictBadgeVariant } from "@/lib/roast";
+import { computeDiffLines, formatVerdictLabel, getVerdictBadgeVariant } from "@/lib/roast";
 import { caller } from "@/trpc/server";
 
 type RoastResultPageProps = {
@@ -54,11 +54,13 @@ async function RoastResultContent({ params }: RoastResultPageProps) {
     notFound();
   }
 
-  const roast = await caller.roast.byId({ id });
+  const roast = await caller.roast.getById({ id });
 
   if (!roast) {
     notFound();
   }
+
+  const diffLines = computeDiffLines(roast.code, roast.suggestedFix);
 
   return (
     <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-10 px-6 pt-10 pb-16 sm:px-10 lg:px-20">
@@ -79,7 +81,7 @@ async function RoastResultContent({ params }: RoastResultPageProps) {
             <span>&middot;</span>
             <span>{`${roast.lineCount} lines`}</span>
             <span>&middot;</span>
-            <span>{roast.isRoastMode ? "roast mode" : "review mode"}</span>
+            <span>{roast.roastMode ? "roast mode" : "review mode"}</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -105,12 +107,12 @@ async function RoastResultContent({ params }: RoastResultPageProps) {
         <SectionTitle label="detailed_analysis" />
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-          {roast.issues.map((issue) => (
-            <AnalysisCardRoot key={issue.title}>
-              <Badge variant={issue.type}>{issue.type}</Badge>
-              <AnalysisCardTitle>{issue.title}</AnalysisCardTitle>
+          {roast.analysisItems.map((item) => (
+            <AnalysisCardRoot key={item.title}>
+              <Badge variant={item.severity}>{item.severity}</Badge>
+              <AnalysisCardTitle>{item.title}</AnalysisCardTitle>
               <AnalysisCardDescription>
-                {issue.description}
+                {item.description}
               </AnalysisCardDescription>
             </AnalysisCardRoot>
           ))}
@@ -123,7 +125,7 @@ async function RoastResultContent({ params }: RoastResultPageProps) {
         <SectionTitle label="suggested_fix" />
 
         <DiffBlock fileName="your_code.ts → improved_code.ts">
-          {roast.suggestedFix.map((line, index) => (
+          {diffLines.map((line, index) => (
             <DiffLine
               key={`${line.type}-${index + 1}`}
               type={line.type}

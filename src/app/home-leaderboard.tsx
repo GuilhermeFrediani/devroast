@@ -1,8 +1,7 @@
-import { cacheLife, cacheTag } from "next/cache";
+import { cacheLife } from "next/cache";
 import Link from "next/link";
 import { LeaderboardSnippet } from "@/components/ui/leaderboard-snippet";
 import { SectionTitle } from "@/components/ui/section-title";
-import { LEADERBOARD_CACHE_TAG } from "@/lib/cache-tags";
 import { caller } from "@/trpc/server";
 
 type HomeLeaderboardEntry = {
@@ -17,12 +16,7 @@ type HomeLeaderboardEntry = {
 type HomeLeaderboardItemProps = Omit<HomeLeaderboardEntry, "id">;
 
 export async function HomeLeaderboard() {
-  "use cache";
-
-  cacheLife("hours");
-  cacheTag(LEADERBOARD_CACHE_TAG);
-
-  const data = await caller.leaderboard.list({ limit: 3 });
+  const data = await caller.roast.getLeaderboard({ limit: 3 });
   const entries: HomeLeaderboardEntry[] = data.entries;
 
   return (

@@ -1,19 +1,11 @@
-import { cacheLife, cacheTag } from "next/cache";
 import { LeaderboardSnippet } from "@/components/ui/leaderboard-snippet";
 import { SectionTitle } from "@/components/ui/section-title";
-import { LEADERBOARD_CACHE_TAG, METRICS_CACHE_TAG } from "@/lib/cache-tags";
 import { caller } from "@/trpc/server";
 
 export async function LeaderboardContent() {
-  "use cache";
-
-  cacheLife("hours");
-  cacheTag(LEADERBOARD_CACHE_TAG);
-  cacheTag(METRICS_CACHE_TAG);
-
-  const [leaderboard, metrics] = await Promise.all([
-    caller.leaderboard.list({ limit: 20 }),
-    caller.metrics.summary(),
+  const [leaderboard, stats] = await Promise.all([
+    caller.roast.getLeaderboard({ limit: 20 }),
+    caller.roast.getStats(),
   ]);
 
   return (
@@ -32,10 +24,10 @@ export async function LeaderboardContent() {
 
         <div className="flex items-center gap-2 text-xs text-text-tertiary">
           <span>
-            {metrics.roastedCodes.toLocaleString("en-US")} submissions
+            {stats.totalRoasts.toLocaleString("en-US")} submissions
           </span>
           <span>&middot;</span>
-          <span>avg score: {metrics.averageScore.toFixed(1)}/10</span>
+          <span>avg score: {stats.avgScore.toFixed(1)}/10</span>
         </div>
       </section>
 

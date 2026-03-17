@@ -10,11 +10,11 @@ const HOUR_IN_MS = 60 * 60 * 1000;
 export function HomeMetricsContent() {
   const trpc = useTRPC();
   const { data } = useQuery(
-    trpc.metrics.summary.queryOptions(undefined, { staleTime: HOUR_IN_MS }),
+    trpc.roast.getStats.queryOptions(undefined, { staleTime: HOUR_IN_MS }),
   );
 
-  const [roastedCodes, setRoastedCodes] = useState(0);
-  const [averageScore, setAverageScore] = useState(0);
+  const [totalRoasts, setTotalRoasts] = useState(0);
+  const [avgScore, setAvgScore] = useState(0);
 
   useEffect(() => {
     if (!data) {
@@ -22,8 +22,8 @@ export function HomeMetricsContent() {
     }
 
     const frame = requestAnimationFrame(() => {
-      setRoastedCodes(data.roastedCodes);
-      setAverageScore(data.averageScore);
+      setTotalRoasts(data.totalRoasts);
+      setAvgScore(data.avgScore);
     });
 
     return () => cancelAnimationFrame(frame);
@@ -33,7 +33,7 @@ export function HomeMetricsContent() {
     <div className="flex items-center justify-center gap-6 text-xs text-text-tertiary">
       <span className="flex items-center gap-1">
         <NumberFlow
-          value={roastedCodes}
+          value={totalRoasts}
           format={{ useGrouping: true }}
           className="font-mono text-text-secondary tabular-nums"
         />
@@ -45,7 +45,7 @@ export function HomeMetricsContent() {
       <span className="flex items-center gap-1">
         <span>avg score:</span>
         <NumberFlow
-          value={averageScore}
+          value={avgScore}
           format={{ minimumFractionDigits: 1, maximumFractionDigits: 1 }}
           className="font-mono text-text-secondary tabular-nums"
         />
